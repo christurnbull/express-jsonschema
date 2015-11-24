@@ -145,6 +145,8 @@ function addSchemaProperties(newProperties) {
          data a JsonSchemaValidation instance is passed to the next middleware.
          If the data is valid the next middleware is called with no params.
 
+         Provides middleware fot http and socket.io-events
+
    @public
 
    @param {Object} schemas - An object where the keys are request properties
@@ -170,24 +172,47 @@ function validate(schemas, schemaDependencies) {
 
     return function(req, res, next) {
         var validations = {};
-        Object.keys(schemas).forEach(function(requestProperty) {
-            var schema = schemas[requestProperty],
-                validation;
+		
+		if(typeof req.httpVersion !== 'undefined'){	// http request
+		  
+		  Object.keys(schemas).forEach(function(requestProperty) {
+			  var schema = schemas[requestProperty],
+				  validation;
 
-            validation = validator.validate(
-                req[requestProperty],
-                schema,
-                {propertyName: 'request.' + requestProperty}
-            );
-            if (!validation.valid) {
-                validations[requestProperty] = validation;
-            }
-        });
-        if (Object.keys(validations).length) {
-            next(new JsonSchemaValidation(validations));
-        } else {
-            next();
-        }
+			  validation = validator.validate(
+				  req[requestProperty],
+				  schema,
+				  {propertyName: 'request.' + requestProperty}
+			  );
+			  if (!validation.valid) {
+				  validations[requestProperty] = validation;
+			  }
+		  });
+		  
+		}else{	// socketio request
+		  
+		  // validate message data sent via socket.io-events using body schema
+		  var args= res
+		  var msg= args[1]
+		  var schema = schemas['body'],
+			  validation;
+
+		  validation = validator.validate(
+			  msg,
+			  schema,
+			  {propertyName: 'socketio msg'}
+		  );
+		  if (!validation.valid) {
+			  validations['body'] = validation;
+		  }
+		}
+		
+		if (Object.keys(validations).length) {
+		  next(new JsonSchemaValidation(validations));
+		} else {
+		  next();
+		}
+
     };
 }
 
